@@ -39,12 +39,14 @@ async function loginSubmit() {
 function applyBoot(b) {
   S.user = b.user; S.role = b.user.role; S.cards = b.cards || []; S.baseOverride = b.baseUrl || ''; S.wa = b.waAdmin || '';
   S.overview = b.overview || null; S.settings = b.settings || null; S.users = b.users || []; S.syncAt = Date.now();
+  /* shortcut: cache hanya diperbarui saat sinkron penuh (login, tiap 90 dtk, manual); perubahan sesudahnya disusulkan oleh sinkron setelah refresh */
+  ssSet('rnfc-boot', JSON.stringify(b));
 }
 function resetStaffState() {
   S.token = null; S.role = null; S.user = null; S.cards = []; S.overview = null; S.settings = null; S.users = [];
   S.sr.data = null; S.sr.cache = {}; S.gen.result = null; S.f = { q: '', status: 'all', sort: 'recent', page: 1 };
   clearInterval(T.auto); delete T.auto; $('staffRoot').innerHTML = ''; closeDrawer();
-  try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {}
+  try { ['rnfc-tok', 'rnfc-boot', 'rnfc-view'].forEach(function (k) { sessionStorage.removeItem(k); }); } catch (e) {}
 }
 function forceLogout(msg) { resetStaffState(); go('login'); toast('warn', 'Sesi berakhir', msg); }
 function doLogoutUi() {

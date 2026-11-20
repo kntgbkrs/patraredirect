@@ -113,7 +113,7 @@ Situs aktif di: `https://USERNAME.github.io/NAMA-REPO/`
 ---
 
 ## BAGIAN D — Hubungkan & atur
-1. Buka `https://USERNAME.github.io/NAMA-REPO/` → **Login Petugas** → `master` + password dari A2.
+1. Buka `https://USERNAME.github.io/NAMA-REPO/?petugas=KUNCI_RAHASIA` (lihat **BAGIAN H**) → login `master` + password dari A2.
 2. Menu **Pengaturan**: tempel **Google Places API key** (Cloud Console: aktifkan *Places API (New)* + penagihan; batasi key ke Places API (New) saja), isi **WhatsApp admin**, lalu **Simpan**.
 3. Alamat situs terdeteksi otomatis. Kolom *Override alamat situs* hanya diisi bila memakai domain sendiri.
 
@@ -136,6 +136,43 @@ Menu **Buat Kode Masal** → *Hasilkan* → **Unduh CSV**. Kolom `url_tag` beris
   ```
   Tunggu 1–2 menit; bila tampilan lama, tekan **Ctrl+Shift+R**.
 - **Backend:** ubah `Kode.gs` → **Deploy → Kelola deployment → pensil → Versi baru → Deploy** (URL tetap).
+
+---
+
+## BAGIAN H — Login Petugas tersembunyi
+
+Halaman publik **tidak** menampilkan tombol Login Petugas. Halaman login hanya terbuka lewat alamat khusus:
+```
+https://DOMAIN-ANDA/?petugas=KUNCI_RAHASIA
+```
+Simpan alamat itu sebagai bookmark petugas. Kunci langsung dihapus dari address bar setelah dibuka. Kunci salah → pengunjung hanya melihat portal biasa.
+
+**Frontend** (`js/config.js`) hanya menyimpan `STAFF_GATE_HASH` = SHA-256 dari kunci, bukan kuncinya.
+Ganti kunci: `printf '%s' 'KUNCI-BARU' | shasum -a 256` → tempel hasilnya ke `STAFF_GATE_HASH` → push.
+
+**Backend (WAJIB agar benar-benar aman).** URL `/exec` bersifat publik, jadi siapa pun bisa mengirim permintaan `login` langsung tanpa membuka website. Tambahkan pemeriksaan kunci di `Kode.gs`:
+
+1. Apps Script → **Setelan proyek** → **Properti skrip** → tambah `STAFF_GATE_KEY` = kunci yang sama (bukan hash-nya).
+2. Tempel fungsi ini di `Kode.gs`:
+   ```js
+   /** Pintu Login Petugas. Kunci di Script Properties: STAFF_GATE_KEY. */
+   function staffGateOk_(gate) {
+     var key = PropertiesService.getScriptProperties().getProperty('STAFF_GATE_KEY');
+     if (!key) return true;                 // belum diisi → perilaku lama (login tanpa kunci)
+     gate = String(gate || '');
+     if (gate.length !== key.length) return false;
+     var diff = 0;
+     for (var i = 0; i < key.length; i++) diff |= key.charCodeAt(i) ^ gate.charCodeAt(i);
+     return diff === 0;
+   }
+   ```
+3. Di bagian `doPost` yang menangani `action === 'login'`, **sebelum** memeriksa username/password, tambahkan
+   (pakai pesan yang sama persis dengan pesan "password salah" Anda agar keberadaan kunci tidak ketahuan):
+   ```js
+   if (!staffGateOk_(body.gate)) return { success: false, code: 'AUTH', message: 'Username atau kata sandi salah.' };
+   ```
+   (`body` = objek JSON hasil `JSON.parse(e.postData.contents)`; sesuaikan nama variabel dan cara Anda mengembalikan respons.)
+4. **Deploy → Kelola deployment → pensil → Versi baru → Deploy.**
 
 ---
 

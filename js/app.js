@@ -12,22 +12,47 @@ async function loadConfig() {
   const r = await apiGet({ action: 'config' });
   if (r && r.success && r.data) setWa(r.data.wa);
 }
+/* Pulihkan sesi petugas setelah refresh. true = dashboard sudah ditampilkan. */
 async function restoreSession() {
-  let t = null; try { t = sessionStorage.getItem('rnfc-tok'); } catch (e) {}
-  if (!t) return;
-  const r = await rpc('staffBootstrap', [t]);               /* S.token masih kosong → tidak memicu "sesi berakhir" */
-  if (!r.success) { try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {} return; }
-  if (S.view !== 'portal' && S.view !== 'login') return;
-  S.token = t; applyBoot(r.data); startAuto();
-  go(S.role === 'master' ? 'overview' : 'cards');
+  const t = ssGet('rnfc-tok'); if (!t) return false;
+  let b = null; try { b = JSON.parse(ssGet('rnfc-boot')); } catch (e) {}
+  const cached = !!b;
+  if (!cached) {                                            /* A: tanpa cache, layar "Memuat…" tetap tampil sampai server menjawab */
+    const r = await rpc('staffBootstrap', [t]);             /* S.token masih kosong → tidak memicu "sesi berakhir" */
+    if (!r.success) { try { sessionStorage.removeItem('rnfc-tok'); } catch (e) {} return false; }
+    b = r.data;
+  }
+  S.token = t; applyBoot(b); startAuto();
+  const v = ssGet('rnfc-view');                             /* B: kembali ke menu terakhir */
+  go(STAFF_VIEWS.indexOf(v) >= 0 ? v : (S.role === 'master' ? 'overview' : 'cards'));
+  if (cached) refreshStaff(false);                          /* C: tampil instan dari cache, lalu sinkron (token kadaluarsa → forceLogout) */
+  return true;
+}
+
+/* Pintu Login Petugas: ?petugas=KUNCI dicocokkan dengan STAFF_GATE_HASH (SHA-256). Kunci salah → portal biasa, tanpa petunjuk. */
+async function openStaffGate() {
+  const k = QS.get('petugas');
+  if (k === null) return false;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}   /* buang kunci dari address bar & riwayat */
+  if (typeof STAFF_GATE_HASH === 'undefined' || !STAFF_GATE_HASH || !(window.crypto && crypto.subtle)) return false;
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k));
+    const hex = Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    if (hex !== STAFF_GATE_HASH.toLowerCase()) return false;
+  } catch (e) { return false; }
+  S.gate = k;
+  try { sessionStorage.setItem('rnfc-gate', k); } catch (e) {}           /* bertahan selama tab terbuka, seperti token */
+  return true;
 }
 
 (async function boot() {
   if (!gasReady()) { go('setup'); hideBoot(); return; }
 
-  if (!INIT.code) {                                         /* tanpa kode kartu → portal kelola */
-    go('portal'); hideBoot();
-    loadConfig(); restoreSession();
+  if (!INIT.code) {                                         /* tanpa kode kartu → dashboard (sesi tersimpan), login (kunci petugas benar), atau portal */
+    const gate = await openStaffGate();
+    loadConfig();
+    if (!(await restoreSession())) go(gate ? 'login' : 'portal');
+    hideBoot();
     return;
   }
 
