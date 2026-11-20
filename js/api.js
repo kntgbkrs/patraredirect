@@ -40,7 +40,7 @@ const RPC_MAP = {
   verifyPin:         function (code, pin) { return ['verifyPin', { code: code, pin: pin }]; },
   updateCardOwner:   function (cardToken, patch) { return ['ownerUpdate', { cardToken: cardToken, patch: patch }]; },
   resetCardOwner:    function (cardToken) { return ['ownerReset', { cardToken: cardToken }]; },
-  doLogin:           function (username, password) { return ['login', { username: username, password: password }]; },
+  doLogin:           function (username, password) { return ['login', { username: username, password: password, gate: S.gate }]; },
   doLogout:          function (token) { return ['logout', { token: token }]; },
   staffBootstrap:    function (token) { return ['bootstrap', { token: token }]; },
   updateCardStaff:   function (token, code, patch) { return ['staffUpdate', { token: token, code: code, patch: patch }]; },

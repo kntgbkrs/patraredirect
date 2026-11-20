@@ -94,7 +94,8 @@ const S = {
   rp: { q: '', status: 'all', tipe: 'all', periode: 'all', page: 1 },
   sr: { gran: 'day', from: '', to: '', tipe: 'all', data: null, loading: false, cache: {} },
   gen: { jumlah: 100, panjang: 8, aman: true, label: '', result: null },
-  setTab: 'umum', pending: 0, placeCache: {}, owner: null, ownerCode: INIT.code || '', reg: null, mng: null, pin: null, done: null, rd: null
+  setTab: 'umum', pending: 0, placeCache: {}, owner: null, ownerCode: INIT.code || '', reg: null, mng: null, pin: null, done: null, rd: null,
+  gate: (function () { try { return sessionStorage.getItem('rnfc-gate') || ''; } catch (e) { return ''; } })()   /* kunci pintu Login Petugas (lihat app.js) */
 };
 const T = {};          // timer
 const CH = {};         // instance chart
@@ -280,6 +281,7 @@ function destroyCharts() { Object.keys(CH).forEach(function (k) { try { CH[k].de
 function go(view) {
   if (MASTER_ONLY.indexOf(view) >= 0 && S.role !== 'master') view = 'cards';
   if (STAFF_VIEWS.indexOf(view) >= 0 && !S.token) view = 'login';
+  if (view === 'login' && !S.gate) view = 'portal';             /* halaman login hanya lewat ?petugas=KUNCI */
   const was = S.view;
   S.view = view;
   render(was !== view && rootOf(was) !== rootOf(view));

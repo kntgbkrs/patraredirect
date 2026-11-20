@@ -22,11 +22,27 @@ async function restoreSession() {
   go(S.role === 'master' ? 'overview' : 'cards');
 }
 
+/* Pintu Login Petugas: ?petugas=KUNCI dicocokkan dengan STAFF_GATE_HASH (SHA-256). Kunci salah → portal biasa, tanpa petunjuk. */
+async function openStaffGate() {
+  const k = QS.get('petugas');
+  if (k === null) return false;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}   /* buang kunci dari address bar & riwayat */
+  if (typeof STAFF_GATE_HASH === 'undefined' || !STAFF_GATE_HASH || !(window.crypto && crypto.subtle)) return false;
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(k));
+    const hex = Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    if (hex !== STAFF_GATE_HASH.toLowerCase()) return false;
+  } catch (e) { return false; }
+  S.gate = k;
+  try { sessionStorage.setItem('rnfc-gate', k); } catch (e) {}           /* bertahan selama tab terbuka, seperti token */
+  return true;
+}
+
 (async function boot() {
   if (!gasReady()) { go('setup'); hideBoot(); return; }
 
-  if (!INIT.code) {                                         /* tanpa kode kartu → portal kelola */
-    go('portal'); hideBoot();
+  if (!INIT.code) {                                         /* tanpa kode kartu → portal kelola (atau login bila kunci petugas benar) */
+    go((await openStaffGate()) ? 'login' : 'portal'); hideBoot();
     loadConfig(); restoreSession();
     return;
   }
