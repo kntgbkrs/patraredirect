@@ -282,6 +282,7 @@ function go(view) {
   if (MASTER_ONLY.indexOf(view) >= 0 && S.role !== 'master') view = 'cards';
   if (STAFF_VIEWS.indexOf(view) >= 0 && !S.token) view = 'login';
   if (view === 'login' && !S.gate) view = 'portal';             /* halaman login hanya lewat ?petugas=KUNCI */
+  if (STAFF_VIEWS.indexOf(view) >= 0) ssSet('rnfc-view', view);  /* diingat untuk refresh */
   const was = S.view;
   S.view = view;
   render(was !== view && rootOf(was) !== rootOf(view));
